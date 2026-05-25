@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>营销推广数据汇总系统</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #FAFAFA;
+            color: #1A1A1A;
+            -webkit-font-smoothing: antialiased;
+        }
+        .theme-gold-gradient {
+            background: linear-gradient(135deg, #DFD3C3 0%, #C5A880 100%);
+        }
+        .theme-gold-text { color: #B3966E; }
+        .theme-gold-border { border-color: #E6DCD0; }
+        .theme-gold-bg { background-color: #FDFBF7; }
+        .sidebar-active {
+            background-color: #F5EFEB;
+            color: #8C6F4A;
+            border-right: 3px solid #C5A880;
+        }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #F1F1F1; }
+        ::-webkit-scrollbar-thumb { background: #DFD3C3; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #C5A880; }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-900 font-sans antialiased">
+    <div id="app" class="flex h-screen overflow-hidden">
+        <aside class="w-64 bg-white border-r border-stone-200 flex flex-col z-20 shadow-sm">
+            <div class="p-6 border-b border-stone-100 flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl theme-gold-gradient flex items-center justify-center text-white shadow-md shadow-amber-700/10">
+                    <i class="fa-solid fa-chart-line-up font-bold"></i>
+                </div>
+                <div>
+                    <h1 class="text-base font-bold tracking-tight text-stone-800">营销数据系统</h1>
+                    <p class="text-xs text-stone-400 font-medium tracking-wider">MARKETING MATRIX</p>
+                </div>
+            </div>
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <button onclick="ui.switchTab('dashboard')" id="nav-dashboard" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all font-medium text-sm sidebar-active">
+                    <i class="fa-solid fa-objects-column text-base w-5"></i>
+                    <span>控制台概览</span>
+                </button>
+                <button onclick="ui.switchTab('expense')" id="nav-expense" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all font-medium text-sm">
+                    <i class="fa-solid fa-wallet text-base w-5"></i>
+                    <span>推广花费录入</span>
+                </button>
+                <button onclick="ui.switchTab('firstVisit')" id="nav-firstVisit" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all font-medium text-sm">
+                    <i class="fa-solid fa-user-plus text-base w-5"></i>
+                    <span>初诊到诊登记</span>
+                </button>
+                <button onclick="ui.switchTab('platformConfig')" id="nav-platformConfig" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-stone-600 hover:bg-stone-50 hover:text-stone-900 transition-all font-medium text-sm">
+                    <i class="fa-solid fa-sliders text-base w-5"></i>
+                    <span>渠道矩阵配置</span>
+                </button>
+            </nav>
+            <div class="p-4 border-t border-stone-100 bg-stone-50/50 space-y-2">
+                <div class="flex items-center space-x-2 text-xs text-stone-400 px-2">
+                    <i class="fa-solid fa-circle text-[6px] text-emerald-500 animate-pulse"></i>
+                    <span id="guest-indicator">核心策略路由就绪</span>
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="app.generateMagicLink(false)" class="flex-1 px-2.5 py-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-lg font-medium flex items-center justify-center text-xs"><i class="fa-solid fa-bookmark text-amber-700 mr-1"></i>构建书签魔术链接</button>
+                    <button onclick="app.generateMagicLink(true)" class="flex-1 px-2.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-lg font-medium flex items-center justify-center text-xs"><i class="fa-solid fa-link mr-1"></i>生成仅读访问链接</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col min-w-0 bg-stone-50 overflow-hidden">
+            <header class="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-8 z-10 shadow-sm">
+                <div class="flex items-center space-x-4">
+                    <span id="page-title" class="text-lg font-bold text-stone-800">控制台概览</span>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <button onclick="app.clearAllData()" class="px-3 py-1.5 border border-rose-200 hover:bg-rose-50 text-rose-600 rounded-lg text-xs font-medium transition-all"><i class="fa-solid fa-trash-can mr-1"></i>清空本地存储</button>
+                    <div class="h-4 w-px bg-stone-200"></div>
+                    <div class="text-xs text-stone-500 font-medium bg-stone-100 px-2.5 py-1.5 rounded-lg border border-stone-200/50">
+                        数据沙盒架构 v1.2
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8" id="view-container">
+                <div id="view-dashboard" class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                        <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700"><i class="fa-solid fa-chart-line text-xl"></i></div>
+                            <div>
+                                <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">总投入规模</p>
+                                <h3 class="text-xl font-bold text-stone-800 mt-1" id="dash-total-cost">¥0.00</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-stone-700"><i class="fa-solid fa-users text-xl"></i></div>
+                            <div>
+                                <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">总登记初诊</p>
+                                <h3 class="text-xl font-bold text-stone-800 mt-1" id="dash-total-visits">0 人</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-stone-100 flex items-center justify-center text-stone-700"><i class="fa-solid fa-user-check text-xl"></i></div>
+                            <div>
+                                <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">确认到诊数</p>
+                                <h3 class="text-xl font-bold text-stone-800 mt-1" id="dash-total-arrived">0 人</h3>
+                            </div>
+                        </div>
+                        <div class="bg-white p-5 rounded-2xl border border-stone-200 shadow-sm flex items-center space-x-4">
+                            <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-700"><i class="fa-solid fa-calculator text-xl"></i></div>
+                            <div>
+                                <p class="text-xs font-medium text-stone-400 uppercase tracking-wider">综合到诊率</p>
+                                <h3 class="text-xl font-bold text-stone-800 mt-1" id="dash-arrival-rate">0.00%</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm lg:col-span-2">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-sm font-bold text-stone-800">趋势演变图谱 (投入 vs 到诊)</h4>
+                                <span class="text-xs text-stone-400">跨周期连续性监测</span>
+                            </div>
+                            <div class="h-64"><canvas id="chart-trend"></canvas></div>
+                        </div>
+                        <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm">
+                            <div class="flex items-center justify-between mb-4">
+                                <h4 class="text-sm font-bold text-stone-800">渠道份额漏斗</h4>
+                                <span class="text-xs text-stone-400">流量归因占比</span>
+                            </div>
+                            <div class="h-64"><canvas id="chart-share"></canvas></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
+                        <div class="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                            <h4 class="text-sm font-bold text-stone-800">全渠道营销 ROI 效率矩阵</h4>
+                            <span class="text-xs px-2.5 py-1 bg-white border border-stone-200 rounded-lg text-stone-500 font-medium">动态实时统计</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs">
+                                <thead>
+                                    <tr class="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold">
+                                        <th class="p-4">媒体渠道</th>
+                                        <th class="p-4">总资金消耗</th>
+                                        <th class="p-4">获取初诊数</th>
+                                        <th class="p-4">初诊平均成本</th>
+                                        <th class="p-4">实际到诊数</th>
+                                        <th class="p-4">独立到诊成本</th>
+                                        <th class="p-4">到诊转化率</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="roi-matrix-body" class="divide-y divide-stone-100 text-stone-700">
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-expense" class="space-y-6 hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm h-fit">
+                            <h4 class="text-sm font-bold text-stone-800 mb-4 pb-3 border-b border-stone-100">新增消耗流水</h4>
+                            <form id="expense-form" onsubmit="app.handleExpenseSubmit(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">记录目标日期</label>
+                                    <input type="date" id="exp-date" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">媒介归属渠道</label>
+                                    <select id="exp-platform" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">实际消耗金额 (¥)</label>
+                                    <input type="number" step="0.01" id="exp-amount" required placeholder="0.00" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all">
+                                </div>
+                                <button type="submit" class="w-full py-2.5 theme-gold-gradient hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-md transition-all">核准切入数据流</button>
+                            </form>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-stone-200 shadow-sm lg:col-span-2 flex flex-col overflow-hidden">
+                            <div class="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                                <h4 class="text-sm font-bold text-stone-800">消耗流水历史镜像</h4>
+                                <button onclick="app.exportToCSV('expense')" class="text-xs px-2.5 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-lg font-medium transition-all"><i class="fa-solid fa-file-export mr-1"></i>导出数据矩阵 (CSV)</button>
+                            </div>
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold">
+                                            <th class="p-4">账期节点</th>
+                                            <th class="p-4">渠道</th>
+                                            <th class="p-4">消耗金额</th>
+                                            <th class="p-4 w-20 text-center">系统指令</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="expense-table-body" class="divide-y divide-stone-100 text-stone-700">
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-firstVisit" class="space-y-6 hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm h-fit">
+                            <h4 class="text-sm font-bold text-stone-800 mb-4 pb-3 border-b border-stone-100">登记初诊及细分项目</h4>
+                            <form id="visit-form" onsubmit="app.handleVisitSubmit(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">登记日期</label>
+                                    <input type="date" id="vis-date" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">获客归属渠道</label>
+                                    <select id="vis-platform" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">大类归属</label>
+                                    <select id="vis-category" required class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all">
+                                        <option value="整形外科">整形外科</option>
+                                        <option value="微创注射">微创注射</option>
+                                        <option value="皮肤美容">皮肤美容</option>
+                                        <option value="其他">其他</option>
+                                    </select>
+                                </div>
+                                <div class="border-t border-stone-100 pt-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <label class="text-xs font-semibold text-stone-500">细分项目明细矩阵</label>
+                                        <button type="button" onclick="app.addFormSubItem()" class="text-amber-700 hover:text-amber-800 text-xs font-bold"><i class="fa-solid fa-plus-circle mr-0.5"></i>追加品类</button>
+                                    </div>
+                                    <div id="form-sub-items-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                                        </div>
+                                </div>
+                                <button type="submit" class="w-full py-2.5 theme-gold-gradient hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-md transition-all">确认写入信息闭环</button>
+                            </form>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-stone-200 shadow-sm lg:col-span-2 flex flex-col overflow-hidden">
+                            <div class="p-5 border-b border-stone-100 flex items-center justify-between bg-stone-50/50">
+                                <h4 class="text-sm font-bold text-stone-800">初诊到诊信息流矩阵</h4>
+                                <button onclick="app.exportToCSV('visit')" class="text-xs px-2.5 py-1.5 border border-stone-200 hover:bg-stone-50 text-stone-600 rounded-lg font-medium transition-all"><i class="fa-solid fa-file-export mr-1"></i>导出数据矩阵 (CSV)</button>
+                            </div>
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold">
+                                            <th class="p-4">登记日期</th>
+                                            <th class="p-4">渠道</th>
+                                            <th class="p-4">归属大类</th>
+                                            <th class="p-4">细分项目明细 (人数/金额)</th>
+                                            <th class="p-4 w-20 text-center">到诊校验</th>
+                                            <th class="p-4 w-20 text-center">指令</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="visit-table-body" class="divide-y divide-stone-100 text-stone-700">
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="view-platformConfig" class="space-y-6 hidden">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="bg-white p-6 rounded-2xl border border-stone-200 shadow-sm h-fit">
+                            <h4 class="text-sm font-bold text-stone-800 mb-4 pb-3 border-b border-stone-100">新增营销发布通路</h4>
+                            <form id="platform-form" onsubmit="app.handlePlatformSubmit(event)" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-stone-500 mb-1.5">渠道标识名称</label>
+                                    <input type="text" id="plat-name" required placeholder="如：美团、大众点评、抖音、小红书" class="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl text-xs focus:outline-none focus:border-amber-600 transition-all">
+                                </div>
+                                <button type="submit" class="w-full py-2.5 theme-gold-gradient hover:opacity-90 text-white rounded-xl text-xs font-bold shadow-md transition-all">注册新媒介渠道</button>
+                            </form>
+                        </div>
+                        <div class="bg-white rounded-2xl border border-stone-200 shadow-sm lg:col-span-2 flex flex-col overflow-hidden">
+                            <div class="p-5 border-b border-stone-100 bg-stone-50/50">
+                                <h4 class="text-sm font-bold text-stone-800">当前活跃渠道矩阵域</h4>
+                            </div>
+                            <div class="overflow-x-auto flex-1">
+                                <table class="w-full text-left border-collapse text-xs">
+                                    <thead>
+                                        <tr class="bg-stone-50 border-b border-stone-200 text-stone-500 font-semibold">
+                                            <th class="p-4">系统唯一识别码 (UUID)</th>
+                                            <th class="p-4">渠道标识名称</th>
+                                            <th class="p-4 w-20 text-center">维护指令</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="platform-table-body" class="divide-y divide-stone-100 text-stone-700">
+                                        </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toast-container" class="fixed top-5 right-5 z-50 space-y-3 pointer-events-none"></div>
+
+    <script>
+        (() => {
+            // 系统状态存储机
+            const state = {
+                platforms: [
+                    { id: 'p1', name: '美团线上独立阵列', isDeleted: false },
+                    { id: 'p2', name: '抖音全域本地推流', isDeleted: false },
+                    { id: 'p3', name: '小红书私域精细化运维', isDeleted: false }
+                ],
+                expenses: [],
+                firstVisits: [],
+                isGuestMode: false
+            };
+
+            // 全局日志总线
+            const logStack = [];
+
+            // UI 视图渲染矩阵
+            const ui = {
+                currentTab: 'dashboard',
+                charts: {},
+                switchTab(tabId) {
+                    if (state.isGuestMode && tabId !== 'dashboard') {
+                        ui.showToast('当前处于[仅读访问模式]，数据安全锁定，无法切入操作流', 'warning');
+                        return;
+                    }
+                    this.currentTab = tabId;
+                    document.querySelectorAll('#view-container > div').forEach(el => el.classList.add('hidden'));
+                    document.getElementById(`view-${tabId}`).classList.remove('hidden');
+                    document.querySelectorAll('aside nav button').forEach(btn => btn.classList.remove('sidebar-active'));
+                    document.getElementById(`nav-${tabId}`).classList.add('sidebar-active');
+                    
+                    const titles = { 'dashboard': '控制台概览', 'expense': '推广花费录入', 'firstVisit': '初诊到诊登记', 'platformConfig': '渠道矩阵配置' };
+                    document.getElementById('page-title').innerText = titles[tabId] || '核心看板';
+                    
+                    this.renderAll();
+                },
+                showToast(msg, type = 'success') {
+                    const container = document.getElementById('toast-container');
+                    const toast = document.createElement('div');
+                    toast.className = `p-4 rounded-xl shadow-xl text-xs font-bold text-white flex items-center space-x-2 transition-all duration-300 transform translate-x-10 opacity-0 pointer-events-auto min-w-[240px]`;
+                    
+                    if (type === 'success') toast.classList.add('bg-stone-800');
+                    else if (type === 'warning') toast.classList.add('bg-amber-600');
+                    else toast.classList.add('bg-rose-600');
+                    
+                    toast.innerHTML = `<i class="fa-solid ${type==='success'?'fa-circle-check':type==='warning'?'fa-triangle-exclamation':'fa-circle-xmark'} text-sm"></i><span>${msg}</span>`;
+                    container.appendChild(toast);
+                    
+                    setTimeout(() => { toast.classList.remove('translate-x-10', 'opacity-0'); }, 10);
+                    setTimeout(() => {
+                        toast.classList.add('translate-x-10', 'opacity-0');
+                        setTimeout(() => toast.remove(), 300);
+                    }, 3500);
+                },
+                renderAll() {
+                    this.renderDropdowns();
+                    if (this.currentTab === 'dashboard') { this.renderDashboard(); }
+                    else if (this.currentTab === 'expense') { this.renderExpenses(); }
+                    else if (this.currentTab === 'firstVisit') { this.renderVisits(); }
+                    else if (this.currentTab === 'platformConfig') { this.renderPlatforms(); }
+                },
+                renderDropdowns() {
+                    const expSel = document.getElementById('exp-platform');
+                    const visSel = document.getElementById('vis-platform');
+                    if (!expSel || !visSel) return;
+                    
+                    const opts = state.platforms.filter(p => !p.isDeleted).map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                    expSel.innerHTML = opts;
+                    visSel.innerHTML = opts;
+                },
+                renderPlatforms() {
+                    const tbody = document.getElementById('platform-table-body');
+                    tbody.innerHTML = state.platforms.filter(p => !p.isDeleted).map(p => `
+                        <tr class="hover:bg-stone-50/80 transition-all border-b border-stone-100">
+                            <td class="p-4 font-mono text-stone-400 select-all">${p.id}</td>
+                            <td class="p-4 font-semibold text-stone-800">${p.name}</td>
+                            <td class="p-4 text-center">
+                                <button onclick="app.deletePlatform('${p.id}')" class="text-rose-600 hover:text-rose-800 font-bold"><i class="fa-solid fa-trash-can"></i></button>
+                            </td>
+                        </tr>
+                    `).join('') || `<tr><td colspan="3" class="p-8 text-center text-stone-400">没有任何活跃渠道，请在左侧建立配置体系</td></tr>`;
+                },
+                renderExpenses() {
+                    const tbody = document.getElementById('expense-table-body');
+                    tbody.innerHTML = state.expenses.filter(e => !e.isDeleted).map(e => {
+                        const p = state.platforms.find(x => x.id === e.platformId) || { name: '未知归属' };
+                        return `
+                            <tr class="hover:bg-stone-50/80 transition-all border-b border-stone-100">
+                                <td class="p-4 text-stone-500 font-medium">${e.date}</td>
+                                <td class="p-4 font-semibold text-stone-800">${p.name}</td>
+                                <td class="p-4 font-bold text-amber-800">¥${parseFloat(e.amount).toFixed(2)}</td>
+                                <td class="p-4 text-center">
+                                    <button onclick="app.deleteExpense('${e.id}')" class="text-rose-600 hover:text-rose-800 font-bold"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('') || `<tr><td colspan="4" class="p-8 text-center text-stone-400">流水账目为空，请在左侧填入新消耗指标</td></tr>`;
+                },
+                renderVisits() {
+                    const tbody = document.getElementById('visit-table-body');
+                    tbody.innerHTML = state.firstVisits.filter(v => !v.isDeleted).map(v => {
+                        const p = state.platforms.find(x => x.id === v.platformId) || { name: '未知归属' };
+                        const subDetails = v.subItems ? v.subItems.map(s => `<span class="inline-block bg-stone-100 border border-stone-200 text-stone-600 px-2 py-0.5 rounded-md m-0.5">${s.name} (${s.count}人 / ¥${s.amount})</span>`).join('') : '<span class="text-stone-400">无细节品类</span>';
+                        return `
+                            <tr class="hover:bg-stone-50/80 transition-all border-b border-stone-100">
+                                <td class="p-4 text-stone-500 font-medium">${v.date}</td>
+                                <td class="p-4 font-semibold text-stone-800">${p.name}</td>
+                                <td class="p-4"><span class="px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200/50 rounded-md font-medium">${v.category}</span></td>
+                                <td class="p-4 max-w-xs">${subDetails}</td>
+                                <td class="p-4 text-center">
+                                    <button onclick="app.toggleArrival('${v.id}')" class="px-2.5 py-1 text-xs rounded-lg font-bold transition-all ${v.isArrived ? 'bg-emerald-500 text-white shadow-sm' : 'bg-stone-100 hover:bg-stone-200 text-stone-600'}">
+                                        ${v.isArrived ? '<i class="fa-solid fa-check mr-0.5"></i>已到诊' : '未到诊'}
+                                    </button>
+                                </td>
+                                <td class="p-4 text-center">
+                                    <button onclick="app.deleteVisit('${v.id}')" class="text-rose-600 hover:text-rose-800 font-bold"><i class="fa-solid fa-trash-can"></i></button>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('') || `<tr><td colspan="6" class="p-8 text-center text-stone-400">信息流登记簿为空</td></tr>`;
+                },
+                renderDashboard() {
+                    let totalCost = 0;
+                    state.expenses.filter(e => !e.isDeleted).forEach(e => totalCost += parseFloat(e.amount));
+                    
+                    let totalVisits = 0;
+                    state.firstVisits.filter(v => !v.isDeleted).forEach(v => {
+                        if (v.subItems) v.subItems.forEach(s => totalVisits += parseInt(s.count));
+                    });
+                    
+                    let totalArrived = 0;
+                    state.firstVisits.filter(v => !v.isDeleted && v.isArrived).forEach(v => {
+                        if (v.subItems) v.subItems.forEach(s => totalArrived += parseInt(s.count));
+                    });
+                    
+                    const arrivalRate = totalVisits > 0 ? (totalArrived / totalVisits * 100).toFixed(2) : '0.00';
+                    
+                    document.getElementById('dash-total-cost').innerText = `¥${totalCost.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    document.getElementById('dash-total-visits').innerText = `${totalVisits} 人`;
+                    document.getElementById('dash-total-arrived').innerText = `${totalArrived} 人`;
+                    document.getElementById('dash-arrival-rate').innerText = `${arrivalRate}%`;
+                    
+                    const platformMetrics = {};
+                    state.platforms.filter(p => !p.isDeleted).forEach(p => {
+                        platformMetrics[p.id] = { name: p.name, cost: 0, visits: 0, arrived: 0 };
+                    });
+                    
+                    state.expenses.filter(e => !e.isDeleted).forEach(e => {
+                        if (platformMetrics[e.platformId]) platformMetrics[e.platformId].cost += parseFloat(e.amount);
+                    });
+                    
+                    state.firstVisits.filter(v => !v.isDeleted).forEach(v => {
+                        if (platformMetrics[v.platformId]) {
+                            let cnt = 0;
+                            if (v.subItems) v.subItems.forEach(s => cnt += parseInt(s.count));
+                            platformMetrics[v.platformId].visits += cnt;
+                            if (v.isArrived) platformMetrics[v.platformId].arrived += cnt;
+                        }
+                    });
+                    
+                    const roiBody = document.getElementById('roi-matrix-body');
+                    roiBody.innerHTML = Object.values(platformMetrics).map(m => {
+                        const costPerVisit = m.visits > 0 ? `¥${(m.cost / m.visits).toFixed(2)}` : '--';
+                        const costPerArrival = m.arrived > 0 ? `¥${(m.cost / m.arrived).toFixed(2)}` : '--';
+                        const convRate = m.visits > 0 ? `${(m.arrived / m.visits * 100).toFixed(2)}%` : '0.00%';
+                        return `
+                            <tr class="hover:bg-stone-50/50 transition-all">
+                                <td class="p-4 font-semibold text-stone-800">${m.name}</td>
+                                <td class="p-4 font-bold text-stone-900">¥${m.cost.toFixed(2)}</td>
+                                <td class="p-4 text-stone-600 font-medium">${m.visits} 人</td>
+                                <td class="p-4 text-stone-500">${costPerVisit}</td>
+                                <td class="p-4 text-stone-600 font-medium">${m.arrived} 人</td>
+                                <td class="p-4 font-semibold text-amber-900">${costPerArrival}</td>
+                                <td class="p-4"><span class="px-2 py-0.5 bg-stone-100 border border-stone-200 rounded text-stone-700 font-bold">${convRate}</span></td>
+                            </tr>
+                        `;
+                    }).join('') || `<tr><td colspan="7" class="p-8 text-center text-stone-400">无法整合产出分析矩阵，因缺少基本元数据映射</td></tr>`;
+                    
+                    this.renderCharts(platformMetrics);
+                },
+                renderCharts(metrics) {
+                    if (this.charts.share) { this.charts.share.destroy(); }
+                    if (this.charts.trend) { this.charts.trend.destroy(); }
+                    
+                    const labels = Object.values(metrics).map(m => m.name);
+                    const costData = Object.values(metrics).map(m => m.cost);
+                    const arrivalData = Object.values(metrics).map(m => m.arrived);
+                    
+                    const shareCtx = document.getElementById('chart-share').getContext('2d');
+                    this.charts.share = new Chart(shareCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: labels,
+                            datasets: [{
+                                data: costData,
+                                backgroundColor: ['#C5A880', '#E6DCD0', '#3A3A3A', '#8C6F4A', '#DFD3C3'],
+                                borderWidth: 2,
+                                borderColor: '#FFFFFF'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10, family: 'Noto Sans SC' } } } }
+                        }
+                    });
+                    
+                    const trendCtx = document.getElementById('chart-trend').getContext('2d');
+                    this.charts.trend = new Chart(trendCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: labels,
+                            datasets: [
+                                { label: '资金消耗 (¥)', data: costData, backgroundColor: '#C5A880', borderRadius: 6, yAxisID: 'y' },
+                                { label: '到诊转化 (人)', data: arrivalData, backgroundColor: '#3A3A3A', borderRadius: 6, yAxisID: 'y1' }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: { type: 'linear', position: 'left', grid: { color: '#F0F0F0' }, ticks: { font: { size: 9 } } },
+                                y1: { type: 'linear', position: 'right', grid: { drawOnChartArea: false }, ticks: { font: { size: 9 } } },
+                                x: { grid: { display: false }, ticks: { font: { size: 10, family: 'Noto Sans SC' } } }
+                            },
+                            plugins: { legend: { position: 'top', labels: { boxWidth: 12, font: { size: 10 } } } }
+                        }
+                    });
+                }
+            };
+
+            // 应用核心逻辑体
+            const app = {
+                state: state,
+                init() {
+                    this.pushLog("启动沙盒核心编译序列");
+                    this.parseUrlAndHydrate();
+                    if (!state.isGuestMode) { this.loadFromStorage(); }
+                    ui.renderDropdowns();
+                    ui.switchTab('dashboard');
+                    this.renderFormSubItemInit();
+                },
+                pushLog(msg) {
+                    const stamp = new Date().toISOString();
+                    logStack.push(`[${stamp}] ${msg}`);
+                },
+                loadFromStorage() {
+                    const local = localStorage.getItem('__MARKETING_MATRIX_DATA__');
+                    if (local) {
+                        try {
+                            const parsed = JSON.parse(local);
+                            if (parsed.platforms) state.platforms = parsed.platforms;
+                            if (parsed.expenses) state.expenses = parsed.expenses;
+                            if (parsed.firstVisits) state.firstVisits = parsed.firstVisits;
+                            this.pushLog("本地离线数据缓存装载完毕");
+                        } catch (e) {
+                            this.pushLog("解析缓存失败，冷启动初始化");
+                        }
+                    }
+                },
+                saveToStorage() {
+                    if (state.isGuestMode) return;
+                    localStorage.setItem('__MARKETING_MATRIX_DATA__', JSON.stringify({
+                        platforms: state.platforms,
+                        expenses: state.expenses,
+                        firstVisits: state.firstVisits
+                    }));
+                },
+                parseUrlAndHydrate() {
+                    const hash = window.location.hash;
+                    if (hash && hash.includes('state=')) {
+                        try {
+                            const match = hash.match(/state=([^&]*)/);
+                            if (match && match[1]) {
+                                // 兼容解压旧版和新版极短魔术链接逻辑
+                                let jsonStr = '';
+                                try {
+                                    const rawData = atob(decodeURIComponent(match[1]));
+                                    if (rawData.startsWith('pako:')) {
+                                        const binaryString = atob(rawData.substring(5));
+                                        const charData = binaryString.split('').map(x => x.charCodeAt(0));
+                                        const binData = new Uint8Array(charData);
+                                        jsonStr = pako.inflate(binData, { to: 'string' });
+                                    } else {
+                                        jsonStr = rawData;
+                                    }
+                                } catch(err) {
+                                    // 尝试直接通过 pako 解码 URL 安全 Base64
+                                    const binaryString = atob(decodeURIComponent(match[1]).replace(/-/g, '+').replace(/_/g, '/'));
+                                    const charData = binaryString.split('').map(x => x.charCodeAt(0));
+                                    const binData = new Uint8Array(charData);
+                                    jsonStr = pako.inflate(binData, { to: 'string' });
+                                }
+                                
+                                const hydratedState = JSON.parse(jsonStr);
+                                if (hydratedState.platforms) state.platforms = hydratedState.platforms;
+                                if (hydratedState.expenses) state.expenses = hydratedState.expenses;
+                                if (hydratedState.firstVisits) state.firstVisits = hydratedState.firstVisits;
+                                
+                                if (hash.includes('mode=guest')) {
+                                    state.isGuestMode = true;
+                                    document.getElementById('guest-indicator').innerHTML = '<span class="text-amber-600">[仅读客体模式] 数据链锁定</span>';
+                                    this.pushLog("进入沙盒隔离镜像空间");
+                                } else {
+                                    this.saveToStorage();
+                                    this.pushLog("从外部高能书签中同步反序列化完成");
+                                }
+                            }
+                        } catch (e) {
+                            console.error("解构故障: ", e);
+                            ui.showToast('外部魔术数据链损坏，终止导入', 'error');
+                        }
+                    }
+                },
+                generateMagicLink(isReadOnly) {
+                    try {
+                        const jsonStr = JSON.stringify(state);
+                        // 使用 pako 进行极致压缩，解决 GitHub Pages 对大链接报 414 错误的硬伤
+                        const binaryString = pako.deflate(jsonStr, { to: 'string' });
+                        const b64encoded = btoa(binaryString);
+                        const urlSafeB64 = encodeURIComponent(b64encoded);
+                        
+                        const magicUrl = `${window.location.origin}${window.location.pathname}#state=${urlSafeB64}${isReadOnly ? '&mode=guest' : ''}`;
+                        
+                        navigator.clipboard.writeText(magicUrl).then(() => {
+                            ui.showToast(isReadOnly ? '只读数据短链接生成成功！' : '全权魔术书签链接生成成功！');
+                        }).catch(() => {
+                            console.log("Magic Link: ", magicUrl);
+                            alert("因部分环境阻止剪贴板，请从开发者控制台复制链接。");
+                        });
+                        this.pushLog(`高压缩率短链接打包完成，总长度降至: ${magicUrl.length}`);
+                    } catch (e) {
+                        ui.showToast('压缩底层通信协议故障', 'error');
+                    }
+                },
+                clearAllData() {
+                    if(confirm('警告：此操作将全盘抹除本地存储的全部营销流数据！确定执行？')) {
+                        localStorage.removeItem('__MARKETING_MATRIX_DATA__');
+                        window.location.hash = '';
+                        window.location.reload();
+                    }
+                },
+                handlePlatformSubmit(e) {
+                    e.preventDefault();
+                    const nameInput = document.getElementById('plat-name');
+                    const name = nameInput.value.trim();
+                    if(!name) return;
+                    
+                    const id = 'p_' + Math.random().toString(36).substring(2, 9);
+                    state.platforms.push({ id, name, isDeleted: false });
+                    nameInput.value = '';
+                    this.saveToStorage();
+                    ui.renderAll();
+                    ui.showToast(`渠道通道 [${name}] 成功并入网络`);
+                    this.pushLog(`注册新媒介路由：${name}`);
+                },
+                deletePlatform(id) {
+                    if(confirm('确认销毁该渠道映射？销毁后其历史数据依然保留在矩阵中，但无法在新数据流中被选用。')) {
+                        const target = state.platforms.find(p => p.id === id);
+                        if(target) {
+                            target.isDeleted = true;
+                            this.saveToStorage();
+                            ui.renderAll();
+                            ui.showToast('渠道停用隔离成功');
+                        }
+                    }
+                },
+                handleExpenseSubmit(e) {
+                    e.preventDefault();
+                    const date = document.getElementById('exp-date').value;
+                    const platformId = document.getElementById('exp-platform').value;
+                    const amount = document.getElementById('exp-amount').value;
+                    
+                    if(!date || !platformId || !amount) return;
+                    
+                    const id = 'e_' + Math.random().toString(36).substring(2, 9);
+                    state.expenses.push({ id, date, platformId, amount: parseFloat(amount), isDeleted: false });
+                    
+                    document.getElementById('exp-amount').value = '';
+                    this.saveToStorage();
+                    ui.renderAll();
+                    ui.showToast('流水账目成功核准');
+                    this.pushLog(`记入消耗流水 ¥${amount}`);
+                },
+                deleteExpense(id) {
+                    if(confirm('移除本条财务流水？')) {
+                        const target = state.expenses.find(e => e.id === id);
+                        if(target) {
+                            target.isDeleted = true;
+                            this.saveToStorage();
+                            ui.renderAll();
+                            ui.showToast('流水注销成功');
+                        }
+                    }
+                },
+                renderFormSubItemInit() {
+                    const container = document.getElementById('form-sub-items-container');
+                    container.innerHTML = '';
+                    this.addFormSubItem();
+                },
+                addFormSubItem() {
+                    const container = document.getElementById('form-sub-items-container');
+                    const itemRow = document.createElement('div');
+                    itemRow.className = "flex space-x-2 bg-stone-100/50 p-2 rounded-lg border border-stone-200/40 items-center sub-item-row";
+                    itemRow.innerHTML = `
+                        <input type="text" placeholder="细分项目/套餐" required class="w-1/2 px-2 py-1 bg-white border border-stone-200 rounded-md text-xs focus:outline-none">
+                        <input type="number" placeholder="人数" required value="1" min="1" class="w-1/6 px-2 py-1 bg-white border border-stone-200 rounded-md text-xs focus:outline-none text-center">
+                        <input type="number" step="0.01" placeholder="金额" required class="w-1/4 px-2 py-1 bg-white border border-stone-200 rounded-md text-xs focus:outline-none">
+                        <button type="button" onclick="this.parentElement.remove()" class="text-stone-400 hover:text-rose-600"><i class="fa-solid fa-square-minus text-sm"></i></button>
+                    `;
+                    container.appendChild(itemRow);
+                },
+                handleVisitSubmit(e) {
+                    e.preventDefault();
+                    const date = document.getElementById('vis-date').value;
+                    const platformId = document.getElementById('vis-platform').value;
+                    const category = document.getElementById('vis-category').value;
+                    
+                    const rows = document.querySelectorAll('.sub-item-row');
+                    const subItems = [];
+                    rows.forEach(row => {
+                        const inputs = row.querySelectorAll('input');
+                        if (inputs[0].value.trim()) {
+                            subItems.push({
+                                name: inputs[0].value.trim(),
+                                count: parseInt(inputs[1].value) || 0,
+                                amount: parseFloat(inputs[2].value) || 0
+                            });
+                        }
+                    });
+                    
+                    if(!date || !platformId || subItems.length === 0) return;
+                    
+                    const id = 'v_' + Math.random().toString(36).substring(2, 9);
+                    state.firstVisits.push({ id, date, platformId, category, subItems, isArrived: false, isDeleted: false });
+                    
+                    this.renderFormSubItemInit();
+                    this.saveToStorage();
+                    ui.renderAll();
+                    ui.showToast('初诊结构体录入完成');
+                    this.pushLog(`建立初诊转化漏斗节点: ${category}`);
+                },
+                toggleArrival(id) {
+                    const target = state.firstVisits.find(v => v.id === id);
+                    if(target) {
+                        target.isArrived = !target.isArrived;
+                        this.saveToStorage();
+                        ui.renderAll();
+                        ui.showToast(target.isArrived ? '到诊状态已锁定核准' : '到诊状态已撤回重置', 'warning');
+                    }
+                },
+                deleteVisit(id) {
+                    if(confirm('确定销毁此条初诊数据记录？')) {
+                        const target = state.firstVisits.find(v => v.id === id);
+                        if(target) {
+                            target.isDeleted = true;
+                            this.saveToStorage();
+                            ui.renderAll();
+                            ui.showToast('记录销毁');
+                        }
+                    }
+                },
+                exportToCSV(type) {
+                    let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+                    if (type === 'expense') {
+                        csvContent += `"核算日期","推广媒介渠道","金额(¥)"\n`;
+                        state.expenses.filter(e => !e.isDeleted).forEach(e => {
+                            const p = state.platforms.find(x => x.id === e.platformId) || {name:''};
+                            csvContent += `"${e.date}","${p.name}","${e.amount}"\n`;
+                        });
+                    } else {
+                        csvContent += `"登记日期","来源渠道","归属大类","品类明细","初诊总数","总成交额"\n`;
+                        state.firstVisits.filter(v => !v.isDeleted).forEach(v => {
+                            const p = state.platforms.find(x => x.id === v.platformId) || {name:''};
+                            const totalCount = v.subItems ? v.subItems.reduce((a,c)=>a+c.count,0) : 0;
+                            const totalAmount = v.subItems ? v.subItems.reduce((a,c)=>a+c.amount,0) : 0;
+                            const subDetails = v.subItems ? v.subItems.map(s => `${s.name}(${s.count}人:¥${s.amount})`).join(' | ') : '';
+                            csvContent += `"${v.date}","${p.name}","${v.category}","${subDetails.replace(/"/g, '""')}","${totalCount}","${totalAmount}"\n`;
+                        });
+                    }
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `营销统计_${type === 'expense' ? '花费明细' : '初诊到诊'}_${new Date().toLocaleDateString()}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    this.pushLog(`启动数据矩阵导出 CSV`);
+                }
+            };
+
+            window.app = app;
+            window.ui = ui;
+            document.addEventListener('DOMContentLoaded', () => app.init());
+        })();
+    </script>
+</body>
+</html>
